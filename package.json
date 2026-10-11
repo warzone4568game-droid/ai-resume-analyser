@@ -1,0 +1,10 @@
+{
+  "name": "resume-analyzer-pro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI resume analyzer with a secure Gemini API proxy.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}

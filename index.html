@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Analyzer Pro</title>
+    <meta name="description" content="Analyze your resume with advanced AI to get instant feedback, score, and recommendations.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Include PDF.js for parsing PDF resumes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+</head>
+<body>
+    <div class="background-effects">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+        <div class="glow-orb orb-3"></div>
+    </div>
+
+    <!-- API Key Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>⚙️ Server Setup</h2>
+                <button id="close-settings" class="icon-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="api-key-input">Local Analysis Mode</label>
+                <input type="text" id="api-key-input" placeholder="No API key required" autocomplete="off" spellcheck="false" value="" readonly>
+                <p class="help-text">This app works without a Gemini key using built-in resume scoring and role matching. Optional: set <strong>GEMINI_API_KEY</strong> later for AI-powered analysis.</p>
+                <button id="save-settings-btn" class="primary-btn">Close</button>
+                <p id="keys-status" style="margin-top:0.5rem;font-size:0.85rem;">✅ No API key required for local analysis.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Context Modal -->
+    <div id="job-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>Job Requirements</h2>
+                <button id="close-job-modal" class="icon-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="job-role-input">Target Job Role (Required)</label>
+                <input type="text" id="job-role-input" placeholder="e.g., Senior Software Engineer">
+                <p id="job-role-error" class="field-error" aria-live="polite"></p>
+                <label for="job-desc-input" style="margin-top: 1rem;">Job Description / Key Requirements (Optional)</label>
+                <textarea id="job-desc-input" placeholder="Paste the job requirements here..." style="min-height: 120px;"></textarea>
+                <button id="start-analysis-btn" class="primary-btn pulse-effect" style="margin-top: 1rem;" disabled>Start Deep Analysis</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="glass-nav">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 13H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 17H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>ResumeAI Pro</span>
+        </div>
+        <nav>
+            <button id="open-settings" class="secondary-btn">Local Mode</button>
+        </nav>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1 class="gradient-text">Elevate Your Career with AI</h1>
+            <p class="subtitle">Upload your resume and get instant, actionable feedback to land your dream job.</p>
+        </section>
+
+        <section class="upload-section">
+            <div class="input-container glass-panel">
+                <div class="tabs">
+                    <button class="tab active" data-tab="upload-tab">Upload PDF</button>
+                    <button class="tab" data-tab="paste-tab">Paste Text</button>
+                </div>
+                
+                <div id="upload-tab" class="tab-content active">
+                    <div class="drop-zone" id="drop-zone">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <h3>Drag & Drop your resume</h3>
+                        <p>or click to browse (PDF, JPG, PNG)</p>
+                        <input type="file" id="file-input" accept="application/pdf, image/jpeg, image/png" class="hidden">
+                    </div>
+                </div>
+
+                <div id="paste-tab" class="tab-content hidden">
+                    <textarea id="resume-text" placeholder="Paste your resume content here..."></textarea>
+                </div>
+
+                <div class="action-bar upload-actions">
+                    <button id="load-sample-btn" class="secondary-btn" type="button">Load Sample Resume</button>
+                    <button id="analyze-btn" class="primary-btn pulse-effect" disabled>Analyze Resume</button>
+                </div>
+                <p id="sample-status" class="status-text"></p>
+            </div>
+        </section>
+
+        <section id="loading-section" class="hidden">
+            <div class="loader-container">
+                <div class="spinner" id="loading-spinner"></div>
+                <p id="loading-message">AI is deeply analyzing your resume...</p>
+                <p id="retry-countdown" style="color: var(--warning); font-size: 0.9rem; margin-top: 0.5rem; display: none;"></p>
+                <div class="progress-bar"><div class="progress-fill"></div></div>
+                <button id="cancel-analysis-btn" class="secondary-btn" type="button" style="margin-top: 1rem;">Cancel</button>
+            </div>
+        </section>
+
+        <section id="results-section" class="results-grid hidden">
+            <!-- ATS Score Card -->
+            <div class="card glass-panel score-card flex-grow">
+                <h3>ATS Score</h3>
+                <div class="circle-progress" id="ats-progress">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="bg" cx="50" cy="50" r="45"></circle>
+                        <circle class="progress" cx="50" cy="50" r="45"></circle>
+                    </svg>
+                    <div class="score-value">
+                        <span id="ats-score-number">0</span>
+                        <span class="score-total">/100</span>
+                    </div>
+                </div>
+                <p id="ats-score-verdict" class="verdict">Analyzing...</p>
+            </div>
+
+            <!-- Job Match Score Card -->
+            <div class="card glass-panel score-card flex-grow">
+                <h3>Job Match Score</h3>
+                <div class="circle-progress" id="match-progress">
+                    <svg viewBox="0 0 100 100">
+                        <circle class="bg" cx="50" cy="50" r="45"></circle>
+                        <circle class="progress" cx="50" cy="50" r="45"></circle>
+                    </svg>
+                    <div class="score-value">
+                        <span id="match-score-number">0</span>
+                        <span class="score-total">/100</span>
+                    </div>
+                </div>
+                <p id="match-score-verdict" class="verdict">Analyzing...</p>
+            </div>
+
+            <!-- Strengths Outline -->
+            <div class="card glass-panel flex-grow">
+                <h3>Key Strengths</h3>
+                <ul id="strengths-list" class="styled-list success">
+                    <!-- Populated by JS -->
+                </ul>
+            </div>
+
+            <!-- Areas for Improvement Outline -->
+            <div class="card glass-panel flex-grow">
+                <h3>Areas For Improvement</h3>
+                <ul id="improvements-list" class="styled-list warning">
+                    <!-- Populated by JS -->
+                </ul>
+            </div>
+
+            <!-- Skills Analysis -->
+            <div class="card glass-panel full-width">
+                <h3>Skills Analysis</h3>
+                <div style="margin-bottom: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem; color: var(--success);">Present Skills</h4>
+                    <div class="keywords-container" id="skills-present-container"></div>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 0.5rem; color: var(--warning);">Missing Skills</h4>
+                    <div class="keywords-container" id="skills-missing-container"></div>
+                </div>
+            </div>
+
+            <!-- Analysis & Feedback -->
+            <div class="card glass-panel full-width">
+                <h3>Experience & Projects Analysis</h3>
+                <div id="experience-feedback" class="markdown-content"></div>
+                <h4 style="margin-top: 1rem; color: var(--accent-secondary);">Project Feedback</h4>
+                <div id="project-feedback" class="markdown-content"></div>
+            </div>
+
+            <!-- AI Rewrite Suggestions -->
+            <div class="card glass-panel full-width">
+                <h3>AI Suggested Rewrites</h3>
+                <div id="rewrite-feedback" class="markdown-content"></div>
+            </div>
+
+            <!-- Future Growth & Enhancements -->
+            <div class="card glass-panel full-width">
+                <h3>Enhancements & Next Steps</h3>
+                <ul id="enhancements-list" class="styled-list warning" style="margin-top: 1rem;"></ul>
+                
+                <h3 style="margin-top: 2rem;">Recommended Learning for Domain</h3>
+                <ul id="learning-list" class="styled-list success" style="margin-top: 1rem;"></ul>
+                
+                <h3 style="margin-top: 2rem;">Career Insights & Suggestions</h3>
+                <ul id="career-feedback" class="styled-list" style="margin-top: 1rem;"></ul>
+            </div>
+        </section>
+
+        <div id="results-actions" class="results-actions hidden">
+            <button id="copy-report-btn" class="secondary-btn" type="button">Copy Report</button>
+            <button id="download-report-btn" class="primary-btn" type="button">Download Report</button>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
